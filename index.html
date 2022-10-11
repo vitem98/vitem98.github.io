@@ -1,0 +1,203 @@
+<!DOCTYPE HTML>
+<html lang="en">
+
+<head>
+    <meta charset='utf-8' />
+    <title>FIT5147 S1 2022 - Programming Exercise 3: D3</title>
+    <!-- Load required scripts -->
+    <style>
+        .content {
+            display: inline-block;
+            vertical-align: top;
+        }
+        .side-bar {
+            display: inline-block;
+            vertical-align: top;
+            background-color: lightgrey;
+            box-sizing: border-box;
+            width: 450px;
+            height: 1000px;
+            padding: 30px 30px 40px 30px;
+            text-align: left;
+            font-size: large;
+            font-family: 'Source Sans Pro', sans-serif;
+        }
+        .boundary {
+            stroke: black;
+            stroke-width: 1;
+            opacity: 0.8;
+        }
+        #tooltip-container {
+            position: absolute;
+            background-color: white;
+            padding: 0px 15px 0px 15px;
+            display: none;
+            border: 1px solid #555;
+        }
+        #tooltip-text {
+            font-weight: bold;
+        }
+        .hover-node{
+            fill:#bbffff !important;
+        }
+        .hover-line{
+            stroke:greenYellow !important;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div style="text-align: left;">
+        <div class="side-bar">
+	    <h1> Royal Flying Doctor Services - QLD flights in July 2022</h1>
+
+	    <p>The <a href="https://www.flyingdoctor.org.au/about-the-
+rfds/">Royal Flying Doctor Service (RFDS)</a> provides an emergency medical service in Australia, flying to rural and remote locations. In Queensland (QLD), many of those flights are to and from the city of Brisbane, but its regional bases are also vital in getting quick medical aid. This visualisation shows a simplified version of the QLD boundaries and the main flight routes. This data was provided by the RFDS over various weeks in July 2022. The visualisation shows all airports that the RFDS aircraft flew to and from with the RFDS bases indicated. Only flight routes that were flown more than once and didn't involve Brisbane are shown.</p>
+
+<img src="https://www.flyingdoctor.org.au/download-document/rfds-sunset/" alt="PC-12 into the sunset" width="400">
+	    <p style="font-size: medium;"><i>Photo via <a href="https://www.flyingdoctor.org.au/download-document/rfds-sunset/">Image: Library RFDS</a></i></P>
+            <h3>Acknowledgements</h3>
+            <p style="font-size: medium;"><i> This data is based on that provided from the FlightAware website during July 2022
+(<a href="https://www.flyingdoctor.org.au/map/">https://www.flyingdoctor.org.au/map/</a>, <a href="https://flightaware.com">https://flightaware.com</a>).</p>
+   	    
+	</div>
+
+        <div class="content">    
+            <svg id="canvas" width="1500px" height="1000px"></svg>
+        </div>
+    </div>
+
+    <div id="tooltip-container">
+        <p id="tooltip-text">Tooltip text goes here.</p>
+    </div>
+
+    <script src="https://d3js.org/d3.v4.js"></script>
+    <script type="text/javascript">
+        // #region Existing code in template. Avoid modifying unless absolutely necessary!
+        var svg = d3.select("#canvas");
+
+        // URLs to data sources. DO NOT MODIFY. DO NOT SAVE THESE LOCALLY.
+
+        // STATE BOUNDARIES
+        var boundariesDataPath = "https://raw.githubusercontent.com/michaelniemann/FIT5147-S2-2022-Data/main/state_boundaries.json";
+
+        // AIRPORT LOCATIONS
+        var locationDataPath = "https://raw.githubusercontent.com/michaelniemann/FIT5147-S2-2022-Data/main/PE3_RFDS_airports.json";
+
+        // FLIGHT ROUTES
+        var routeDataPath = "https://raw.githubusercontent.com/michaelniemann/FIT5147-S2-2022-Data/main/PE3_RFDS_flightroutes.json";
+      
+        // Add the Queensland boundary polygons. Adapted from original code courtesy of Merry Hoang
+		d3.json(boundariesDataPath, function(data) {
+			var projection = d3.geoIdentity()
+				.reflectY(true)
+				.fitExtent([
+                                        [0, 100],
+					[1000, 1400]
+				], data);
+
+			var path = d3.geoPath()
+				.projection(projection)
+
+			svg.selectAll("path").filter(".boundary")
+				.data(data.features)
+				.enter()
+				.append("path")
+				.attr('class', "boundary")
+				.attr("d", path)
+			.style("fill", function(d) {
+			    return 'rgba(250,250,50)'
+			})
+                .lower();
+		})
+        // #endregion
+
+      // YOUR CODE GOES HERE
+      const tooltip = d3.select("body")
+        .append("div")
+        .attr("id", "tooltip-container")  
+
+      d3.json(routeDataPath, (data) => {
+        const tooltip_line_info= (start, end, flights, avg, dis) => 
+        `<div>
+            <p>Route Starts From <span>${start}</span> To <span>${end}</span> </p>
+            <p>Route Trips: <span>${flights}</span></p>
+            <p>Average Duration: <span>${avg} </span>minutes</p>
+            <p>Distance Travelled: <span>${dis.toFixed(2)}</span> kilometres</p>
+            <style>
+            span {
+                color: red;
+            }
+            </style>
+        </div>`;
+        
+        const line = svg.append("g").selectAll("line")
+        .data(data).enter().append("line")
+        .attr('x1', (d) => d.routeCoords.startCoords[0])
+        .attr('y1', (d) => d.routeCoords.startCoords[1])
+        .attr('x2', (d) => d.routeCoords.endCoords[0])
+        .attr('y2', (d) => d.routeCoords.endCoords[1])
+        .attr("stroke","gray")
+        .style("stroke-width", (d) => d.flights)
+        .on("mouseover", function(d) {
+                tooltip.html(tooltip_line_info(d.start, d.end, d.flights, d.avgDuration, d.distance))
+                .style("display", "block");
+                this.setAttribute("class", "hover-line")
+            }).on("mouseout", function (d) {
+                tooltip.style("display", "none");
+                this.setAttribute("class", "nomorl-node")
+            }).on("mousemove", () => tooltip.style("top", (d3.event.pageY-10)+"px").style("left", (d3.event.pageX+10)+"px"))
+      })
+
+      d3.json(locationDataPath,(data)=>{
+        const tooltip_node_info = (name, RFDSbase, ARR, DEP) =>{
+            const rfds = RFDSbase === 'Y' ? '<p>RFDSbase: Yes</p>': '';
+            const arr = ARR === 'Y' ? '<p>arr: Yes</p>': '';
+            const dep = DEP === 'Y' ? '<p>dep: Yes</p>': '';
+            return `<div> 
+                    <p> Airports name: <span>${name}</span></p>
+                    <style>
+                    span {
+                        color: red;
+                        }
+                    </style> 
+                    ${rfds}
+                    ${arr} 
+                    ${dep}
+                    </div>`;
+        }
+        
+        const node = svg.selectAll('circle')
+            .data(data).enter().append('circle')
+            .attr("r",(d) => {
+                // let radius = 0;
+                // if (d.arrivals == 0){
+                //     radius = 1;
+                // } else {
+                //     radius = d.arrivals  
+                // }
+                // return radius;
+                const arrived = d.arrivals === 0 ? 1 : d.arrivals;
+                return arrived > 10 ? arrived + 15 : arrived * 6;
+                return d.arried
+            })
+            .attr("cx",function (d) {return d.coord[0]})
+            .attr("cy",(d)=> d.coord[1])
+            .style("fill", (d) => d.location === 'Brisbane' ? 'red' : '#668b8b')
+            .style("stroke", "white")
+            .style("stroke-width", '3')
+            .style("stroke-dasharray", (d) =>{
+                return d.RFDSbase === "N" ? 350 :10;
+            }).on("mouseover", function(d) {
+                tooltip.html(tooltip_node_info(d.location, d.RFDSbase, d.arr, d.dep))
+                .style("display", "block");
+                this.setAttribute("class", "hover-node")
+            }).on("mouseout", function (d) {
+                tooltip.style("display", "none");
+                this.setAttribute("class", "nomorl-node")
+            }).on("mousemove", () => tooltip.style("top", (d3.event.pageY-10)+"px").style("left", (d3.event.pageX+10)+"px"))
+      })
+      
+    </script>
+</body>
